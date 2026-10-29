@@ -21,16 +21,36 @@ export const MEMORY_DIRNAME = 'memory'
 /** Index file inside a memory directory. */
 export const MEMORY_INDEX_FILENAME = 'MEMORY.md'
 
+/** Longest key Claude Code keeps verbatim before appending a hash suffix. */
+export const MAX_PROJECT_KEY_LENGTH = 200
+
+/**
+ * Java-style 32-bit string hash, used by Claude Code to disambiguate the keys
+ * that had to be truncated.
+ *
+ * @param {string} text - text to hash.
+ * @returns {string} base-36 magnitude of the hash.
+ */
+function truncatedKeyHash(text) {
+  let hash = 0
+  for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
+  return Math.abs(hash).toString(36)
+}
+
 /**
  * Encode an absolute filesystem path into a Claude Code project key.
  *
  * `C:\Users\me` becomes `C--Users-me`, `/home/me/.config` becomes `-home-me--config`.
+ * A slug longer than 200 characters is cut at 200 and suffixed with `-<hash36>`
+ * of the *original* path, which is what Claude Code does for deep paths.
  *
  * @param {string} absolutePath - absolute path to encode.
  * @returns {string} the encoded project key.
  */
 export function encodeProjectKey(absolutePath) {
-  return absolutePath.replace(/[^A-Za-z0-9]/g, '-')
+  const slug = absolutePath.replace(/[^A-Za-z0-9]/g, '-')
+  if (slug.length <= MAX_PROJECT_KEY_LENGTH) return slug
+  return `${slug.slice(0, MAX_PROJECT_KEY_LENGTH)}-${truncatedKeyHash(absolutePath)}`
 }
 
 /**

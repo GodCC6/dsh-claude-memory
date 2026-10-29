@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  MAX_PROJECT_KEY_LENGTH,
   confinedRealPath,
   countIndexEntries,
   encodeProjectKey,
@@ -84,6 +85,37 @@ test('encodeProjectKey maps a Windows drive colon to a dash', () => {
 
 test('encodeProjectKey maps every non-alphanumeric character to a dash', () => {
   assert.equal(encodeProjectKey('/home/me/.config/my_app (2)'), '-home-me--config-my-app--2-')
+})
+
+test('encodeProjectKey cuts a long path at 200 characters and appends a hash', () => {
+  const longPath = `/${'a'.repeat(240)}`
+  const key = encodeProjectKey(longPath)
+  assert.equal(key, `-${'a'.repeat(199)}-p2jdu9`)
+  assert.equal(key.length, MAX_PROJECT_KEY_LENGTH + 7)
+})
+
+test('long paths sharing their first 200 characters get distinct keys', () => {
+  const base = `/${'a'.repeat(240)}`
+  assert.notEqual(encodeProjectKey(`${base}a`), encodeProjectKey(`${base}b`))
+})
+
+test('a project keyed by a path longer than 200 characters still resolves exactly', () => {
+  const longPath = `/${'a'.repeat(240)}`
+  const key = encodeProjectKey(longPath)
+  const projectDir = join(fx.home, 'projects', key)
+  mkdirSync(join(projectDir, 'memory'), { recursive: true })
+  writeFileSync(join(projectDir, 'memory', 'MEMORY.md'), '- [long](long.md) — deep path\n')
+  try {
+    const { current, match } = selectProjects({
+      projects: listMemoryProjects(fx.home),
+      cwd: longPath,
+      includeDescendants: false,
+    })
+    assert.equal(match, 'exact')
+    assert.equal(current?.key, key)
+  } finally {
+    rmSync(projectDir, { recursive: true, force: true })
+  }
 })
 
 test('countIndexEntries counts pointer lines only', () => {
