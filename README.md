@@ -31,6 +31,10 @@ dsh plugin --profile web add dsh-claude-memory
 
 Restart the profile — a new bundle in `dsh.profile.bundles` is read at boot, not live.
 
+The package declares `engines.dsh` as `>=0.1.2-rc.1 <0.3.0`, so a DSH 0.2 runtime refuses to
+load it on an incompatible version unless you grant an explicit version exemption. Verified
+against `0.1.2-rc.1` and `0.2.1-rc.4`.
+
 From a checkout instead of npm:
 
 ```bash
@@ -67,8 +71,9 @@ layer or a `--patch` overlay.
 Two system-prompt sections (orders 10 and 11, just after the deployment persona):
 
 1. **`claude-memory:global`** — `~/.claude/CLAUDE.md` with `@path` lines inlined. DSH's own
-   instruction loader deliberately does not expand imports, and it reads
-   `$DSH_HOME/AGENTS.md` rather than `~/.claude/CLAUDE.md`, so this is the only path that
+   instruction loader deliberately does not expand imports, and for the user-global file it
+   reads `$DSH_HOME/AGENTS.md` rather than `~/.claude/CLAUDE.md` (0.2 also reads a
+   project-level `CLAUDE.md`, which is a different file), so this is the only path that
    carries the user-global Claude Code memory.
 2. **`claude-memory:memory`** — the resolved project's `MEMORY.md` index, plus a
    newest-first list of the other projects that have memory.
@@ -148,7 +153,9 @@ npm run test:unit     # fixture-only, no real ~/.claude needed
 | `test/schema.mjs` | The hand-written tool schema against the real `@deepseek-ai/dsh-tools` validators; skips when DSH is absent |
 | `test/live.mjs` | Optional check against a real `~/.claude`; asserts no credential-shaped text reaches the prompt, skips when absent |
 
-76 assertions, no network, no model calls.
+82 assertions, no network, no model calls. CI pins `@deepseek-ai/dsh-tools` and runs
+`test/schema.mjs` against it, so a change in the runtime validators fails the build instead of
+skipping.
 
 ## Case study: two things that are easy to get wrong
 
@@ -172,8 +179,10 @@ refreshed cache and returns plain strings.
 
 Memory lives at `~/.claude/projects/<encoded-project-path>/memory/`, where the path is the
 project directory with every character other than an ASCII letter or digit replaced by `-`
-(`/home/me/.config` becomes `-home-me--config`). All linked worktrees of a repository share
-the main worktree's key. The question is *which* directory counts as the
+(`/home/me/.config` becomes `-home-me--config`). A slug longer than 200 characters is cut at
+200 and suffixed with `-<hash of the full path>`, so deep paths stay distinct. All linked
+worktrees of a repository share the main worktree's key. The question is *which* directory
+counts as the
 project. Measured on the author's machine, on a docs hub that sits inside a larger repo and
 has no `.git` of its own:
 

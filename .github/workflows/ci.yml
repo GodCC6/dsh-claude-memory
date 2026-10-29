@@ -20,3 +20,18 @@ jobs:
       # `test/schema.mjs` and `test/live.mjs` skip cleanly on a machine with no
       # DSH install and no Claude Code store, so `npm test` is portable.
       - run: npm test
+
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # Validate the hand-written tool schema against the real runtime
+      # validators, so a breaking change in dsh-tools fails CI instead of
+      # skipping. Bump this pin together with `engines.dsh`.
+      - run: npm install --no-save --no-package-lock @deepseek-ai/dsh-tools@0.2.1-rc.2
+      - run: node test/schema.mjs
+        env:
+          DSH_TOOLS_REQUIRED: '1'

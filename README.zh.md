@@ -30,6 +30,9 @@ dsh plugin --profile web add dsh-claude-memory
 
 需要重启 profile —— `dsh.profile.bundles` 里的新 bundle 是启动时读取的，不热加载。
 
+包内声明了 `engines.dsh` 为 `>=0.1.2-rc.1 <0.3.0`：DSH 0.2 的运行时版本不匹配时会拒绝加载，
+除非显式授予版本豁免。已在 `0.1.2-rc.1` 与 `0.2.1-rc.4` 上验证。
+
 从本地目录安装：
 
 ```bash
@@ -65,7 +68,8 @@ dsh --profile web --dump-config | grep -A 10 claude-memory
 两个 system prompt 段落（order 10 / 11，紧随部署 persona 之后）：
 
 1. **`claude-memory:global`** —— `~/.claude/CLAUDE.md`，`@path` 已内联。DSH 自带的指令
-   加载器**不解析 import**，且读的是 `$DSH_HOME/AGENTS.md` 而非 `~/.claude/CLAUDE.md`，
+   加载器**不解析 import**；用户级文件它读的是 `$DSH_HOME/AGENTS.md` 而不是
+   `~/.claude/CLAUDE.md`（0.2 也会读项目级 `CLAUDE.md`，那是另一个文件），
    所以这里是用户级 Claude Code 记忆唯一的通路。
 2. **`claude-memory:memory`** —— 解析到的项目 `MEMORY.md` 索引，外加按新鲜度排序的其他
    项目列表。
@@ -133,7 +137,8 @@ npm run test:unit     # 仅 fixture，不需要真实 ~/.claude
 | `test/schema.mjs` | 手写工具 schema 过真实 `@deepseek-ai/dsh-tools` 校验器；无 DSH 时跳过 |
 | `test/live.mjs` | 可选：对真实 `~/.claude` 检查"没有凭据形状文本进入 prompt"；无 store 时跳过 |
 
-共 76 项断言，无网络、无模型调用。
+共 82 项断言，无网络、无模型调用。CI 会固定 `@deepseek-ai/dsh-tools` 版本并真实执行
+`test/schema.mjs`，运行时不变量一变就直接失败，而不是跳过。
 
 ## 案例研究：两件容易做错的事
 
@@ -154,7 +159,7 @@ DSH 插件都适用。
 ### 2. Claude Code 把记忆归档在 git 仓库根下
 
 记忆位于 `~/.claude/projects/<项目路径编码>/memory/`，路径编码是项目目录把 ASCII 字母和数字以外的每个字符换成 `-`（`/home/me/.config` 编码为
-`-home-me--config`）。同一仓库的所有 linked worktree 共用主 worktree 的键。
+`-home-me--config`）；超过 200 字符的编码会截到 200 并追加 `-<完整路径哈希>`，保证深路径仍可区分。同一仓库的所有 linked worktree 共用主 worktree 的键。
 问题在于**哪个目录算项目**。在作者机器上，对一个位于更大仓库内、自身没有 `.git` 的文档
 hub 实测：
 

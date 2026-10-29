@@ -16,9 +16,12 @@ import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-/** Find an installed @deepseek-ai/dsh-tools, preferring the npx cache. */
+/** Find an installed @deepseek-ai/dsh-tools, preferring explicit and local copies. */
 function findDshTools() {
   const candidates = []
+  // CI installs the pinned validators at the repo root and sets this to be safe.
+  if (process.env.DSH_TOOLS_DIR) candidates.push(process.env.DSH_TOOLS_DIR)
+  candidates.push(join(process.cwd(), 'node_modules', '@deepseek-ai', 'dsh-tools'))
   const npxRoot = join(homedir(), '.npm', '_npx')
   if (existsSync(npxRoot)) {
     for (const entry of readdirSync(npxRoot)) {
@@ -31,6 +34,10 @@ function findDshTools() {
 
 const dshToolsDir = findDshTools()
 if (dshToolsDir === null) {
+  if (process.env.DSH_TOOLS_REQUIRED === '1') {
+    console.error('FAIL: DSH_TOOLS_REQUIRED=1 but no installed @deepseek-ai/dsh-tools was found')
+    process.exit(1)
+  }
   console.log('skip: no installed @deepseek-ai/dsh-tools found on this machine')
   process.exit(0)
 }

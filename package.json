@@ -15,7 +15,8 @@
     "LICENSE"
   ],
   "engines": {
-    "node": "^22.19.0 || >=24.0.0"
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.1.2-rc.1 <0.3.0"
   },
   "scripts": {
     "test": "node test/smoke.mjs && node test/plugin.mjs && node test/schema.mjs && node test/live.mjs",
